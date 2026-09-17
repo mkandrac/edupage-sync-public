@@ -1,0 +1,14 @@
+{
+  "timezone": "Europe/Bratislava",
+  "capture_start_at": "2026-01-01T00:00:00",
+  "require_existing_state": true,
+  "accounts": [
+    {
+      "key": "school_a",
+      "name": "School A",
+      "subdomain": "example-school",
+      "username_secret": "EDUPAGE_ACCOUNT_1_USERNAME",
+      "password_secret": "EDUPAGE_ACCOUNT_1_PASSWORD"
+    }
+  ]
+}

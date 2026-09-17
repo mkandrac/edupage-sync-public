@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.venv/
+.env*
+config.json
+*.private.json
+edupage_output*.json
+*.log
+*.zip
+.DS_Store

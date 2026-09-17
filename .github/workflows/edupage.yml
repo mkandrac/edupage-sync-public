@@ -1,0 +1,73 @@
+name: EduPage
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Operation
+        type: choice
+        options: [sync, keepalive]
+        default: sync
+      slot:
+        description: RAW collection slot
+        type: choice
+        options: [main, early]
+        default: main
+  schedule:
+    - cron: '0 16 * * *'
+      timezone: Europe/Bratislava
+    - cron: '30 18 * * *'
+      timezone: Europe/Bratislava
+    - cron: '17 */2 * * *'
+      timezone: Europe/Bratislava
+
+permissions:
+  contents: read
+
+concurrency:
+  group: edupage-state
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      vars.EDUPAGE_ENABLED == 'true' &&
+      (github.event_name == 'workflow_dispatch' ||
+       github.event.schedule != '17 */2 * * *' ||
+       vars.EDUPAGE_KEEPALIVE_ENABLED == 'true')
+    runs-on: macos-15
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: python -m pip install --disable-pip-version-check -r requirements.txt
+      - name: Offline checks without credentials
+        run: python -m unittest discover -v
+      - name: Collect privately
+        env:
+          EDUPAGE_CONFIG_JSON: ${{ secrets.EDUPAGE_CONFIG_JSON }}
+          EDUPAGE_ACCOUNT_1_USERNAME: ${{ secrets.EDUPAGE_ACCOUNT_1_USERNAME }}
+          EDUPAGE_ACCOUNT_1_PASSWORD: ${{ secrets.EDUPAGE_ACCOUNT_1_PASSWORD }}
+          EDUPAGE_ACCOUNT_2_USERNAME: ${{ secrets.EDUPAGE_ACCOUNT_2_USERNAME }}
+          EDUPAGE_ACCOUNT_2_PASSWORD: ${{ secrets.EDUPAGE_ACCOUNT_2_PASSWORD }}
+          GMAIL_USERNAME: ${{ secrets.GMAIL_USERNAME }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          EDUPAGE_FORCE_IPV4: '1'
+          SCHEDULE: ${{ github.event.schedule }}
+          REQUEST_MODE: ${{ inputs.mode }}
+          REQUEST_SLOT: ${{ inputs.slot }}
+        shell: bash
+        run: |
+          if [ "$SCHEDULE" = '17 */2 * * *' ] || [ "$REQUEST_MODE" = 'keepalive' ]; then
+            python run.py keepalive
+          elif [ "$SCHEDULE" = '0 16 * * *' ] || [ "$REQUEST_SLOT" = 'early' ]; then
+            EDUPAGE_RUN_SLOT=early python run.py sync
+          else
+            EDUPAGE_RUN_SLOT=main python run.py sync
+          fi
