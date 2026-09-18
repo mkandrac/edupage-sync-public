@@ -11,9 +11,13 @@ on:
       slot:
         description: RAW collection slot
         type: choice
-        options: [main, early]
+        options: [main, early, morning, noon]
         default: main
   schedule:
+    - cron: '0 9 * * *'
+      timezone: Europe/Bratislava
+    - cron: '0 12 * * *'
+      timezone: Europe/Bratislava
     - cron: '0 16 * * *'
       timezone: Europe/Bratislava
     - cron: '30 18 * * *'
@@ -66,6 +70,10 @@ jobs:
         run: |
           if [ "$SCHEDULE" = '17 */2 * * *' ] || [ "$REQUEST_MODE" = 'keepalive' ]; then
             python run.py keepalive
+          elif [ "$SCHEDULE" = '0 9 * * *' ] || [ "$REQUEST_SLOT" = 'morning' ]; then
+            EDUPAGE_RUN_SLOT=morning python run.py sync
+          elif [ "$SCHEDULE" = '0 12 * * *' ] || [ "$REQUEST_SLOT" = 'noon' ]; then
+            EDUPAGE_RUN_SLOT=noon python run.py sync
           elif [ "$SCHEDULE" = '0 16 * * *' ] || [ "$REQUEST_SLOT" = 'early' ]; then
             EDUPAGE_RUN_SLOT=early python run.py sync
           else

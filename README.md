@@ -23,9 +23,16 @@ See [MIGRATION.md](MIGRATION.md) for the private-to-public transfer.
 
 ## Schedule and startup
 
-Default schedules use Europe/Bratislava: early RAW at 16:00, MAIN RAW at 18:30,
+Default schedules use Europe/Bratislava: MORNING RAW at 09:00, NOON RAW at 12:00,
+EARLY RAW at 16:00, MAIN RAW at 18:30,
 optional keepalive at minute 17 every two hours. Timezone-aware schedules handle
 daylight-saving changes, but dispatch can still be delayed by GitHub.
+
+Every slot captures broad incremental RAW, including a zero-item status email.
+The separate morning/noon brief sends only explicitly important or urgent messages.
+The early brief considers all RAW collected that day, so homework captured earlier
+is not lost. The main brief merges all daily RAW and repeats relevant items even if
+already sent in a morning or early brief: it is the complete daily reference.
 
 **All jobs are disabled by default** until repository variable `EDUPAGE_ENABLED`
 is exactly `true`. Scheduled keepalive additionally requires

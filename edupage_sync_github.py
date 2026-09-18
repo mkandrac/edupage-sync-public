@@ -40,6 +40,7 @@ from zoneinfo import ZoneInfo
 # ============================================================
 
 from private_config import load_config
+from priority import source_priority
 
 CONFIG = load_config()
 ACCOUNTS = CONFIG["accounts"]
@@ -68,6 +69,8 @@ RUN_SLOT = os.getenv(
 ).strip().lower()
 
 if RUN_SLOT not in {
+    "morning",
+    "noon",
     "early",
     "main",
     "manual"
@@ -2116,6 +2119,12 @@ for account in ACCOUNTS:
         # RELEVANT ITEM SERIALIZER
         # ----------------------------------------------------
 
+        source_items = {
+            str(item.get("timelineid")): item
+            for item in (edupage.data.get("items") or [])
+            if isinstance(item, dict)
+        }
+
         def serialize_item(
             notification,
             item_type,
@@ -2129,6 +2138,8 @@ for account in ACCOUNTS:
 
 
             return {
+
+                "priority": source_priority(notification, source_items),
 
                 "source":
                     "edupage",
@@ -2494,6 +2505,8 @@ if (
         all_messages
     ) > 0
     or RUN_SLOT in {
+        "morning",
+        "noon",
         "early",
         "main"
     }
