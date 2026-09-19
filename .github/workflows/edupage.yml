@@ -22,7 +22,7 @@ on:
       timezone: Europe/Bratislava
     - cron: '30 18 * * *'
       timezone: Europe/Bratislava
-    - cron: '17 */2 * * *'
+    - cron: '17 * * * *'
       timezone: Europe/Bratislava
 
 permissions:
@@ -38,7 +38,7 @@ jobs:
       github.ref == 'refs/heads/main' &&
       vars.EDUPAGE_ENABLED == 'true' &&
       (github.event_name == 'workflow_dispatch' ||
-       github.event.schedule != '17 */2 * * *' ||
+       github.event.schedule != '17 * * * *' ||
        vars.EDUPAGE_KEEPALIVE_ENABLED == 'true')
     runs-on: macos-15
     timeout-minutes: 12
@@ -68,7 +68,7 @@ jobs:
           REQUEST_SLOT: ${{ inputs.slot }}
         shell: bash
         run: |
-          if [ "$SCHEDULE" = '17 */2 * * *' ] || [ "$REQUEST_MODE" = 'keepalive' ]; then
+          if [ "$SCHEDULE" = '17 * * * *' ] || [ "$REQUEST_MODE" = 'keepalive' ]; then
             python run.py keepalive
           elif [ "$SCHEDULE" = '0 9 * * *' ] || [ "$REQUEST_SLOT" = 'morning' ]; then
             EDUPAGE_RUN_SLOT=morning python run.py sync
