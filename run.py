@@ -4,6 +4,8 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
+from diagnostics import report
 
 
 def execute(command, *, env, timeout=600):
@@ -31,7 +33,11 @@ def main():
     elif args.mode == "bootstrap":
         command += ["--bootstrap-session", args.account]
     print("EduPage job started. Personal data and worker output are not logged.", flush=True)
-    code = execute(command, env=env)
+    with tempfile.TemporaryDirectory(prefix="edupage-diagnostics-") as directory:
+        path = str(Path(directory) / "status.txt")
+        env["EDUPAGE_DIAGNOSTIC_FILE"] = path
+        code = execute(command, env=env)
+        report(path)
     print("EduPage job completed." if code == 0 else
           "EduPage job failed. Check private RAW status or renew the session locally.")
     return code
@@ -39,3 +45,4 @@ def main():
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

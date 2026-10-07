@@ -1,2 +1,3 @@
-edupage-api==0.12.5
+edupage-api==0.13.1
 cryptography==46.0.3
+

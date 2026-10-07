@@ -15,6 +15,7 @@ from unittest.mock import Mock, patch
 from zoneinfo import ZoneInfo
 
 from private_config import load_config
+from diagnostics import diagnosed, emit
 
 ROOT = Path(__file__).parent
 SOURCE = (ROOT / 'edupage_sync_github.py').read_text()
@@ -32,7 +33,7 @@ def definitions():
             except (ValueError, TypeError):
                 continue
             nodes.append(node)
-    ns = dict(datetime=datetime, date=date, ZoneInfo=ZoneInfo)
+    ns = dict(datetime=datetime, date=date, ZoneInfo=ZoneInfo, diagnosed=diagnosed, emit=emit)
     exec(compile(ast.Module(body=nodes, type_ignores=[]), '<worker definitions>', 'exec'), ns)
     return ns
 
@@ -182,3 +183,4 @@ class RawTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+

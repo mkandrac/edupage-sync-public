@@ -7,7 +7,8 @@ if __name__ == "__main__" and os.getenv("EDUPAGE_PRIVATE_WORKER") != "1":
 
 from edupage_api import Edupage
 from edupage_api.exceptions import BadCredentialsException
-from edupage_api.login import Login
+from edupage_api.login_session import LoginSession
+from diagnostics import diagnosed, emit
 
 import base64
 import email
@@ -517,6 +518,19 @@ def configure_edupage_client(edupage, account):
     )
 
 
+@diagnosed("session_restore")
+def restore_session(edupage, subdomain, session_id, username):
+    return LoginSession(edupage).reload_data(subdomain, session_id, username)
+
+
+@diagnosed("password_login")
+def password_login(edupage, username, password, subdomain):
+    challenge = edupage.login(username, password, subdomain)
+    if challenge is not None:
+        emit("password_login", "challenge_required")
+    return challenge
+
+
 def login_with_saved_session(account, username, password, state):
     session_id = get_saved_session_id(
         state,
@@ -531,7 +545,7 @@ def login_with_saved_session(account, username, password, state):
         )
 
         try:
-            Login(edupage).reload_data(
+            restore_session(edupage,
                 account["subdomain"],
                 session_id,
                 username
@@ -554,7 +568,7 @@ def login_with_saved_session(account, username, password, state):
         account
     )
 
-    two_factor_login = edupage.login(
+    two_factor_login = password_login(edupage,
         username,
         password,
         account["subdomain"]
@@ -710,6 +724,7 @@ def select_gmail_all_mail(imap, readonly=True):
         )
 
 
+@diagnosed("state_load")
 def load_state():
     """Načíta najnovší Gmail state aj po jeho archivovaní."""
 
@@ -986,6 +1001,7 @@ def file_system_email(message_id, email_username, email_password):
                     )
 
 
+@diagnosed("raw_send")
 def send_raw_email(output):
 
     generated_at = output[
@@ -1021,6 +1037,7 @@ def send_raw_email(output):
     )
 
 
+@diagnosed("state_save")
 def send_state_email(state):
     body = json.dumps(
         state,
@@ -1072,7 +1089,7 @@ def bootstrap_session(account_key):
         account
     )
 
-    two_factor_login = edupage.login(
+    two_factor_login = password_login(edupage,
         username,
         password,
         account["subdomain"]
@@ -1158,7 +1175,7 @@ def keepalive_sessions():
             )
 
             try:
-                Login(edupage).reload_data(
+                restore_session(edupage,
                     account["subdomain"],
                     session_id,
                     username
@@ -1610,7 +1627,7 @@ def probe_categories():
                 account
             )
 
-            Login(edupage).reload_data(
+            restore_session(edupage,
                 account["subdomain"],
                 session_id,
                 username
@@ -2675,3 +2692,4 @@ if run_errors:
         )
 
     raise SystemExit(1)
+
