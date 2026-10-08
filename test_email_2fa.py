@@ -136,8 +136,35 @@ class InboxTests(unittest.TestCase):
         inbox = GmailCodeInbox(MAILBOX, 'synthetic', Mock())
         imap = Mock()
         inbox.imap = imap
+        inbox.uidvalidity = 1
+        imap.response.return_value = ('UIDVALIDITY', [b'1'])
         imap.uid.side_effect = [('OK', [uids])] + [('OK', [(b'RFC822', b)]) for b in bodies]
         return inbox
+
+    def test_mail_delivered_after_open_is_visible_after_readonly_refresh(self):
+        inbox = self.inbox(b'', [])
+        visible = False
+        def refresh(imap, *, readonly):
+            nonlocal visible
+            self.assertTrue(readonly)
+            visible = True
+        def uid(command, *args):
+            if command == 'search':
+                self.assertEqual(args, (None, 'UID', '12:*', 'FROM', 'edupage.org'))
+                return 'OK', [b'12' if visible else b'']
+            self.assertEqual((command, *args), ('fetch', '12', '(BODY.PEEK[])'))
+            return 'OK', [(b'RFC822', mail())]
+        inbox.select_all_mail.side_effect = refresh
+        inbox.imap.uid.side_effect = uid
+        self.assertEqual(inbox.poll(12, subdomain='example', not_before=NOW, now=NOW), '123456')
+        inbox.select_all_mail.assert_called_once_with(inbox.imap, readonly=True)
+
+    def test_mailbox_identity_change_stops_before_search(self):
+        inbox = self.inbox(b'12', [mail()])
+        inbox.imap.response.return_value = ('UIDVALIDITY', [b'2'])
+        with self.assertRaisesRegex(EmailSecondFactorError, 'mailbox_changed'):
+            inbox.poll(12, subdomain='example', not_before=NOW, now=NOW)
+        inbox.imap.uid.assert_not_called()
 
     def test_imap_last_uid_quirk_does_not_reuse_old_mail(self):
         inbox = self.inbox(b'10', [])

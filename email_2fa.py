@@ -156,6 +156,12 @@ class GmailCodeInbox:
         return self._number('UIDNEXT')
 
     def poll(self, cursor, *, subdomain, not_before, now):
+        # Gmail can keep the selected read-only mailbox view stale after mail
+        # arrives. Refresh it before searching, but retain the pre-request UID
+        # cursor: advancing UIDNEXT here would skip the code we are waiting for.
+        self.select_all_mail(self.imap, readonly=True)
+        if self._number('UIDVALIDITY') != self.uidvalidity:
+            raise EmailSecondFactorError('email_2fa_mailbox_changed')
         status, data = self.imap.uid('search', None, 'UID', f'{cursor}:*', 'FROM', 'edupage.org')
         if status != 'OK':
             raise EmailSecondFactorError('email_2fa_mailbox_search_failed')

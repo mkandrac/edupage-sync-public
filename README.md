@@ -65,6 +65,14 @@ Implemented and tested offline; **live email delivery and parsing must still be
 verified on each configured account before disabling keepalive**. A successful
 session restore is not evidence that automatic 2FA works.
 
+Live check on 2026-10-08 (run `37818992962`): both configured accounts delivered
+their email codes, but both polls timed out before code submission. Polling now
+reselects the read-only All Mail view and verifies UIDVALIDITY on every iteration,
+retaining the original pre-request UID checkpoint. This addresses a potentially
+stale mailbox view; successful code parsing and login still require a new live
+check. Keepalive remains enabled until both logins and a subsequent collection
+are verified.
+
 The collector uses `edupage-api==0.13.1` to request the email code after EduPage's
 countdown, reads it through Gmail IMAP, and submits it in the same login session.
 It uses the existing `GMAIL_USERNAME` and `GMAIL_APP_PASSWORD` secrets. EduPage's
