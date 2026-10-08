@@ -19,7 +19,7 @@ def execute(command, *, env, timeout=600):
 
 def main():
     parser = argparse.ArgumentParser(description="EduPage private data collector")
-    parser.add_argument("mode", choices=("sync", "keepalive", "bootstrap"), nargs="?", default="sync")
+    parser.add_argument("mode", choices=("sync", "keepalive", "bootstrap", "auth-check"), nargs="?", default="sync")
     parser.add_argument("--account", help="Private account key, only for local bootstrap")
     args = parser.parse_args()
     if args.mode == "bootstrap" and (os.getenv("GITHUB_ACTIONS") or not args.account):
@@ -30,6 +30,8 @@ def main():
     command = [sys.executable, str(Path(__file__).with_name("edupage_sync_github.py"))]
     if args.mode == "keepalive":
         command.append("--keepalive")
+    elif args.mode == "auth-check":
+        command.append("--auth-check")
     elif args.mode == "bootstrap":
         command += ["--bootstrap-session", args.account]
     print("EduPage job started. Personal data and worker output are not logged.", flush=True)
@@ -39,7 +41,7 @@ def main():
         code = execute(command, env=env)
         report(path)
     print("EduPage job completed." if code == 0 else
-          "EduPage job failed. Check private RAW status or renew the session locally.")
+          "EduPage job failed. Check fixed diagnostics and private RAW status.")
     return code
 
 

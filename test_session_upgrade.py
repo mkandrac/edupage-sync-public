@@ -9,6 +9,7 @@ from edupage_api import Edupage
 from edupage_api.login_session import LoginSession
 from edupage_api.exceptions import BadCredentialsException
 from diagnostics import phase, report, emit
+from email_2fa import EmailSecondFactorError
 from test_privacy import definitions
 
 class SessionUpgradeTests(unittest.TestCase):
@@ -38,9 +39,12 @@ class SessionUpgradeTests(unittest.TestCase):
         ns.update(get_saved_session_id=lambda *a:'synthetic', Edupage=lambda:client,
                   configure_edupage_client=Mock(),
                   LoginSession=lambda c:Mock(reload_data=Mock(side_effect=BadCredentialsException('PRIVATE_CANARY'))),
-                  BadCredentialsException=BadCredentialsException)
+                  BadCredentialsException=BadCredentialsException,
+                  get_gmail_credentials=lambda:('u','p'),
+                  select_gmail_all_mail=Mock(),
+                  complete_email_second_factor=Mock(side_effect=EmailSecondFactorError('email_2fa_failed')))
         with tempfile.TemporaryDirectory() as d, patch.dict(os.environ, EDUPAGE_DIAGNOSTIC_FILE=d+'/status'):
-            with self.assertRaises(ns['SessionRenewalRequired']):
+            with self.assertRaises(EmailSecondFactorError):
                 ns['login_with_saved_session']({'key':'test','subdomain':'example'},'u','p',{})
             data=Path(d+'/status').read_text()
         self.assertIn('session_restore:session_rejected',data)

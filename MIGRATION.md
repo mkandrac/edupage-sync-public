@@ -56,9 +56,11 @@ Under **Variables**, initially set both `EDUPAGE_ENABLED` and
 5. Confirm the existing parent-brief automation still reads archived MAIN RAW from
    `EduPage/System`. The format and subject remain compatible; don't duplicate the
    separate brief automation or change its recipients during this migration.
-6. Test one manual `keepalive`. After success, set `EDUPAGE_KEEPALIVE_ENABLED=true`
-   if you want the two-hour schedule. Monitor session survival; two hours is a starting
-   interval, not a measured guarantee.
+6. Run `auth-check` to verify fresh authentication independently of saved sessions.
+   See the [email 2FA rollout](README.md#automatic-email-2fa--rollout-in-progress)
+   before relying on automatic renewal. An optional hourly keepalive remains
+   available with `EDUPAGE_KEEPALIVE_ENABLED=true`; disable it only after fresh
+   authentication and a subsequent normal sync have been verified for all schools.
 
 Rollback: first set the new enable switch to false and wait for its active jobs to
 finish, then re-enable the old private workflows if billing and sessions permit it.

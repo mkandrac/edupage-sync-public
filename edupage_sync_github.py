@@ -9,6 +9,8 @@ from edupage_api import Edupage
 from edupage_api.exceptions import BadCredentialsException
 from edupage_api.login_session import LoginSession
 from diagnostics import diagnosed, emit
+from email_2fa import complete_email_second_factor
+from functools import partial
 
 import base64
 import email
@@ -503,6 +505,7 @@ def save_session_to_state(state, account, edupage, updated_at):
 
 
 def configure_edupage_client(edupage, account):
+    edupage.session.request = partial(edupage.session.request, timeout=(10, 25))
     if not HTTP_DIAGNOSTICS:
         return
 
@@ -531,8 +534,8 @@ def password_login(edupage, username, password, subdomain):
     return challenge
 
 
-def login_with_saved_session(account, username, password, state):
-    session_id = get_saved_session_id(
+def login_with_saved_session(account, username, password, state, *, force_new=False):
+    session_id = None if force_new else get_saved_session_id(
         state,
         account["key"]
     )
@@ -575,17 +578,54 @@ def login_with_saved_session(account, username, password, state):
     )
 
     if two_factor_login is not None:
-        raise SessionRenewalRequired(
-            "EduPage vyžaduje potvrdenie nového zariadenia. "
-            f"Na Macu spusti: python3 edupage_sync_github.py "
-            f"--bootstrap-session {account['key']}"
+        gmail_username, gmail_password = get_gmail_credentials()
+        complete_email_second_factor(
+            two_factor_login, username=gmail_username, password=gmail_password,
+            subdomain=account['subdomain'], select_all_mail=select_gmail_all_mail
         )
+    method = 'email_verified' if two_factor_login is not None else 'password_only'
+    state.setdefault('auth_verification', {})[account['key']] = {
+        'method': method,
+        'verified_at': datetime.now(ZoneInfo(TIMEZONE)).isoformat(timespec='seconds')
+    }
+    if force_new:
+        emit('auth_check', method)
 
     print(
-        "Login OK – nová session vytvorená heslom."
+        "Login OK – nové prihlásenie dokončené."
     )
 
     return edupage
+
+
+# ============================================================
+# FRESH AUTHENTICATION CHECK
+# ============================================================
+
+def check_fresh_authentication():
+    """Verify fresh logins sequentially; preserve history and publish no RAW."""
+    state = load_state()
+    failures = 0
+    successes = 0
+    emit('auth_check', 'start')
+    for account in ACCOUNTS:
+        try:
+            client = login_with_saved_session(
+                account, get_secret(account['username_secret']),
+                get_secret(account['password_secret']), state, force_new=True
+            )
+            save_session_to_state(state, account, client,
+                                  datetime.now(ZoneInfo(TIMEZONE)).isoformat(timespec='seconds'))
+            successes += 1
+        except Exception:
+            failures += 1
+            emit('auth_check', 'error')
+    if successes:
+        state['updated_at'] = datetime.now(ZoneInfo(TIMEZONE)).isoformat(timespec='seconds')
+        send_state_email(state)
+    if failures:
+        raise SessionRenewalRequired('Fresh authentication check failed.')
+    emit('auth_check', 'ok')
 
 
 # ============================================================
@@ -1083,23 +1123,7 @@ def bootstrap_session(account_key):
         account["password_secret"]
     )
 
-    edupage = Edupage()
-    configure_edupage_client(
-        edupage,
-        account
-    )
-
-    two_factor_login = password_login(edupage,
-        username,
-        password,
-        account["subdomain"]
-    )
-
-    if two_factor_login is not None:
-        raise SessionRenewalRequired(
-            "Aj lokálne prihlásenie žiada potvrdenie nového zariadenia. "
-            "Potvrď ho v EduPage a potom bootstrap spusti znova."
-        )
+    edupage = login_with_saved_session(account, username, password, state, force_new=True)
 
     now = datetime.now(
         ZoneInfo(
@@ -1765,6 +1789,10 @@ def probe_categories():
 
 
 if len(sys.argv) > 1:
+    if sys.argv[1:] == ['--auth-check']:
+        check_fresh_authentication()
+        raise SystemExit(0)
+
     if (
         len(sys.argv) == 3
         and

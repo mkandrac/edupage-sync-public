@@ -4,8 +4,13 @@ from functools import wraps
 import os
 from pathlib import Path
 
-PHASES = {'state_load', 'state_save', 'raw_send', 'session_restore', 'password_login'}
-OUTCOMES = {'start', 'ok', 'session_rejected', 'challenge_required', 'authentication_failed', 'network_error', 'error'}
+PHASES = {'state_load', 'state_save', 'raw_send', 'session_restore', 'password_login',
+          'email_2fa_request', 'email_2fa_wait', 'email_2fa_finish', 'auth_check'}
+OUTCOMES = {'start', 'ok', 'session_rejected', 'challenge_required', 'authentication_failed',
+            'network_error', 'error', 'waiting', 'password_only', 'email_verified'}
+OUTCOMES |= {'timeout', 'recipient_unverified', 'mailbox_unavailable', 'ambiguous_codes',
+             'countdown_exhausted', 'mailbox_cursor_failed', 'mailbox_changed',
+             'mailbox_search_failed', 'mailbox_read_failed', 'too_many_candidates', 'mail_unmatched'}
 
 def emit(phase, outcome):
     if phase not in PHASES or outcome not in OUTCOMES:

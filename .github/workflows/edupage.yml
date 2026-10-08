@@ -6,7 +6,7 @@ on:
       mode:
         description: Operation
         type: choice
-        options: [sync, keepalive]
+        options: [sync, keepalive, auth-check]
         default: sync
       slot:
         description: RAW collection slot
@@ -68,7 +68,9 @@ jobs:
           REQUEST_SLOT: ${{ inputs.slot }}
         shell: bash
         run: |
-          if [ "$SCHEDULE" = '17 * * * *' ] || [ "$REQUEST_MODE" = 'keepalive' ]; then
+          if [ "$REQUEST_MODE" = 'auth-check' ]; then
+            python run.py auth-check
+          elif [ "$SCHEDULE" = '17 * * * *' ] || [ "$REQUEST_MODE" = 'keepalive' ]; then
             python run.py keepalive
           elif [ "$SCHEDULE" = '0 9 * * *' ] || [ "$REQUEST_SLOT" = 'morning' ]; then
             EDUPAGE_RUN_SLOT=morning python run.py sync

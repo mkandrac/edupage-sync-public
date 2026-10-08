@@ -25,7 +25,7 @@ See [MIGRATION.md](MIGRATION.md) for the private-to-public transfer.
 
 Default schedules use Europe/Bratislava: MORNING RAW at 09:00, NOON RAW at 12:00,
 EARLY RAW at 16:00, MAIN RAW at 18:30,
-optional keepalive at minute 17 every two hours. Timezone-aware schedules handle
+optional keepalive at minute 17 every hour. Timezone-aware schedules handle
 daylight-saving changes, but dispatch can still be delayed by GitHub.
 
 Every slot captures broad incremental RAW, including a zero-item status email.
@@ -55,8 +55,62 @@ Use Python 3.11. Install `requirements.txt`, provide private environment variabl
 then run `python run.py sync`, `python run.py keepalive`, or on your trusted Mac,
 `python run.py bootstrap --account YOUR_EXISTING_ACCOUNT_KEY`.
 
-The worker cannot be launched directly. No new interactive OTP flow is implemented:
-bootstrap still fails if EduPage requires an unsupported second factor. Keepalive
-cannot revive an expired session. This migration does not fix authentication issues.
+The worker cannot be launched directly. Collection first tries the saved session.
+If EduPage rejects it, the collector logs in with the password and can complete an
+email second factor automatically. Keepalive cannot revive an expired session.
+
+## Automatic email 2FA — rollout in progress
+
+Implemented and tested offline; **live email delivery and parsing must still be
+verified on each configured account before disabling keepalive**. A successful
+session restore is not evidence that automatic 2FA works.
+
+The collector uses `edupage-api==0.13.1` to request the email code after EduPage's
+countdown, reads it through Gmail IMAP, and submits it in the same login session.
+It uses the existing `GMAIL_USERNAME` and `GMAIL_APP_PASSWORD` secrets. EduPage's
+2FA destination must match that mailbox; missing or different destinations stop
+the attempt. No new secret is required for accounts using that mailbox.
+
+- Schools are processed sequentially under the workflow's existing concurrency lock.
+- Each school requests at most one successfully sent email per run. Countdown
+  rejections are retried at most twice, within a 210-second overall budget.
+- Only new mailbox UIDs after the request checkpoint are considered. The recipient,
+  message date, EduPage sender domain and Gmail DMARC result must match. Codes must
+  have a recognized Slovak/Czech/English label; expired, ambiguous, unexpected or
+  unrecognized messages are rejected. Real email-template compatibility is pending.
+- One unambiguous code is submitted once. CAPTCHA, unavailable email delivery or
+  a required app-only confirmation still need intervention; this is not a bypass.
+- Messages are read without marking them seen. Codes and message bodies are never
+  written to state, RAW or public logs. Only allowlisted status codes are logged.
+- The normal RAW/processed-event history is preserved. The separate brief automation
+  and calendar integration are not changed by this authentication update.
+
+### Verify independently of keepalive
+
+Run the workflow manually on `main` with **mode `auth-check`**, or run
+`python run.py auth-check` locally with the same private configuration. This mode
+ignores saved sessions and performs fresh logins for all configured accounts. It
+saves successful sessions without collecting messages, sending RAW or advancing
+processed-event IDs. It may trigger an EduPage app notification before requesting
+the email alternative; no manual confirmation is expected for the email path.
+
+Interpret public diagnostics:
+
+| Status | Meaning |
+| --- | --- |
+| `auth_check:email_verified` | Fresh login completed using an emailed code. |
+| `auth_check:password_only` | Fresh login succeeded without 2FA; the email path was not exercised. |
+| `auth_check:ok` plus `state_save:ok` | All configured accounts authenticated and state was saved. |
+| `email_2fa_finish:recipient_unverified` | EduPage did not identify the configured Gmail destination. |
+| `email_2fa_wait:mail_unmatched` | New EduPage mail arrived but did not satisfy validation/parsing rules. |
+| `email_2fa_finish:timeout` | No acceptable code arrived within the time budget. |
+
+After the email path has succeeded for every applicable account and a subsequent
+normal sync has sent RAW, set repository variable `EDUPAGE_KEEPALIVE_ENABLED=false`.
+The four collection schedules continue unchanged; they can renew authentication
+on demand. Keepalive remains available for rollback. Do not regard GitHub's
+scheduled start time as a guaranteed deadline; retain a buffer before the brief.
+
+Upstream implementation and live-test notes: [email 2FA support](https://github.com/EdupageAPI/edupage-api/pull/118).
 
 Run offline tests with `python -m unittest discover -v`.
