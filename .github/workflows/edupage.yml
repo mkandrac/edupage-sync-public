@@ -22,8 +22,6 @@ on:
       timezone: Europe/Bratislava
     - cron: '30 18 * * *'
       timezone: Europe/Bratislava
-    - cron: '17 * * * *'
-      timezone: Europe/Bratislava
 
 permissions:
   contents: read
@@ -38,8 +36,7 @@ jobs:
       github.ref == 'refs/heads/main' &&
       vars.EDUPAGE_ENABLED == 'true' &&
       (github.event_name == 'workflow_dispatch' ||
-       github.event.schedule != '17 * * * *' ||
-       vars.EDUPAGE_KEEPALIVE_ENABLED == 'true')
+       github.event.schedule != '17 * * * *')
     runs-on: macos-15
     timeout-minutes: 12
     steps:

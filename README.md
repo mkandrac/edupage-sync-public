@@ -24,8 +24,9 @@ See [MIGRATION.md](MIGRATION.md) for the private-to-public transfer.
 ## Schedule and startup
 
 Default schedules use Europe/Bratislava: MORNING RAW at 09:00, NOON RAW at 12:00,
-EARLY RAW at 16:00, MAIN RAW at 18:30,
-optional keepalive at minute 17 every hour. Timezone-aware schedules handle
+EARLY RAW at 16:00 and MAIN RAW at 18:30.
+Hourly keepalive is disabled: its cron was removed after live email 2FA and
+subsequent collection passed. Manual `keepalive` remains available for recovery. Timezone-aware schedules handle
 daylight-saving changes, but dispatch can still be delayed by GitHub.
 
 Every slot captures broad incremental RAW, including a zero-item status email.
@@ -35,9 +36,9 @@ is not lost. The main brief merges all daily RAW and repeats relevant items even
 already sent in a morning or early brief: it is the complete daily reference.
 
 **All jobs are disabled by default** until repository variable `EDUPAGE_ENABLED`
-is exactly `true`. Scheduled keepalive additionally requires
-`EDUPAGE_KEEPALIVE_ENABLED=true`. A manual keepalive can be tested before enabling
-its schedule. Setting `EDUPAGE_ENABLED=false` stops new collector jobs, but does
+is exactly `true`. The old `EDUPAGE_KEEPALIVE_ENABLED` variable no longer enables
+any schedule. Previously queued hourly schedule events are also excluded by the
+job condition; manual keepalive remains available. Setting `EDUPAGE_ENABLED=false` stops new collector jobs, but does
 not cancel an already running job.
 
 Standard `macos-15` runners in public repositories are eligible for free Actions
@@ -59,20 +60,23 @@ The worker cannot be launched directly. Collection first tries the saved session
 If EduPage rejects it, the collector logs in with the password and can complete an
 email second factor automatically. Keepalive cannot revive an expired session.
 
-## Automatic email 2FA — rollout in progress
+## Automatic email 2FA — verified
 
 **Fresh email 2FA verified for both configured accounts on 2026-10-08**, in
 [run 37820819016](https://github.com/mkandrac/edupage-sync-public/actions/runs/37820819016).
 Both reported `email_2fa_finish:ok` and `auth_check:email_verified`; saving the new
-sessions also succeeded. **Keepalive stays enabled until a subsequent data
-collection is verified.** Session restore alone is not evidence of fresh 2FA.
+sessions also succeeded. The subsequent MAIN sync
+[37821955702](https://github.com/mkandrac/edupage-sync-public/actions/runs/37821955702)
+restored both sessions and sent RAW with `status: ok` for both accounts, plus
+updated state. **Hourly keepalive is now disabled.** Session restore alone is
+not evidence of fresh 2FA; the separate fresh-login check above provides that evidence.
 
 Live check on 2026-10-08 (run `37818992962`): both configured accounts delivered
 their email codes, but both polls timed out before code submission. Polling now
 reselects the read-only All Mail view and verifies UIDVALIDITY on every iteration,
 retaining the original pre-request UID checkpoint. The subsequent live check above passed email retrieval, code submission and
-fresh login for both accounts with this change. Keepalive remains enabled while
-the subsequent collection check is pending.
+fresh login for both accounts with this change; the subsequent collection check
+also passed.
 
 The collector uses `edupage-api==0.13.1` to request the email code after EduPage's
 countdown, reads it through Gmail IMAP, and submits it in the same login session.
@@ -114,10 +118,11 @@ Interpret public diagnostics:
 | `email_2fa_wait:mail_unmatched` | New EduPage mail arrived but did not satisfy validation/parsing rules. |
 | `email_2fa_finish:timeout` | No acceptable code arrived within the time budget. |
 
-After the email path has succeeded for every applicable account and a subsequent
-normal sync has sent RAW, set repository variable `EDUPAGE_KEEPALIVE_ENABLED=false`.
-The four collection schedules continue unchanged; they can renew authentication
-on demand. Keepalive remains available for rollback. Do not regard GitHub's
+The email path and subsequent normal sync have now succeeded for all configured
+accounts. The hourly keepalive cron has been removed; the four collection
+schedules continue unchanged and can renew authentication on demand. Manual
+keepalive remains available for recovery. To restore hourly keepalive, restore
+its cron and deliberately update the job condition that excludes that schedule. Do not regard GitHub's
 scheduled start time as a guaranteed deadline; retain a buffer before the brief.
 
 Upstream implementation and live-test notes: [email 2FA support](https://github.com/EdupageAPI/edupage-api/pull/118).

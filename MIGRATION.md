@@ -38,8 +38,9 @@ No secrets can be recovered from GitHub's old secret values: re-enter them from 
 existing trusted local setup. Local Keychain entries must use the generic secret
 names if environment variables are not provided.
 
-Under **Variables**, initially set both `EDUPAGE_ENABLED` and
-`EDUPAGE_KEEPALIVE_ENABLED` to `false`. Keep Actions debug logging disabled.
+Under **Variables**, initially set `EDUPAGE_ENABLED=false`.
+The historical `EDUPAGE_KEEPALIVE_ENABLED` switch is no longer used because the
+hourly schedule is removed. Keep Actions debug logging disabled.
 
 ## 3. Switch without competing writers
 
@@ -57,10 +58,10 @@ Under **Variables**, initially set both `EDUPAGE_ENABLED` and
    `EduPage/System`. The format and subject remain compatible; don't duplicate the
    separate brief automation or change its recipients during this migration.
 6. Run `auth-check` to verify fresh authentication independently of saved sessions.
-   See the [email 2FA rollout](README.md#automatic-email-2fa--rollout-in-progress)
-   before relying on automatic renewal. An optional hourly keepalive remains
-   available with `EDUPAGE_KEEPALIVE_ENABLED=true`; disable it only after fresh
-   authentication and a subsequent normal sync have been verified for all schools.
+   See the [verified email 2FA flow](README.md#automatic-email-2fa--verified)
+   before relying on automatic renewal. Fresh authentication and a subsequent
+   normal sync passed for all configured accounts on 2026-10-08, so the hourly
+   keepalive schedule is removed. Manual keepalive remains available for recovery.
 
 Rollback: first set the new enable switch to false and wait for its active jobs to
 finish, then re-enable the old private workflows if billing and sessions permit it.
