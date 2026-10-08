@@ -61,17 +61,18 @@ email second factor automatically. Keepalive cannot revive an expired session.
 
 ## Automatic email 2FA — rollout in progress
 
-Implemented and tested offline; **live email delivery and parsing must still be
-verified on each configured account before disabling keepalive**. A successful
-session restore is not evidence that automatic 2FA works.
+**Fresh email 2FA verified for both configured accounts on 2026-10-08**, in
+[run 37820819016](https://github.com/mkandrac/edupage-sync-public/actions/runs/37820819016).
+Both reported `email_2fa_finish:ok` and `auth_check:email_verified`; saving the new
+sessions also succeeded. **Keepalive stays enabled until a subsequent data
+collection is verified.** Session restore alone is not evidence of fresh 2FA.
 
 Live check on 2026-10-08 (run `37818992962`): both configured accounts delivered
 their email codes, but both polls timed out before code submission. Polling now
 reselects the read-only All Mail view and verifies UIDVALIDITY on every iteration,
-retaining the original pre-request UID checkpoint. This addresses a potentially
-stale mailbox view; successful code parsing and login still require a new live
-check. Keepalive remains enabled until both logins and a subsequent collection
-are verified.
+retaining the original pre-request UID checkpoint. The subsequent live check above passed email retrieval, code submission and
+fresh login for both accounts with this change. Keepalive remains enabled while
+the subsequent collection check is pending.
 
 The collector uses `edupage-api==0.13.1` to request the email code after EduPage's
 countdown, reads it through Gmail IMAP, and submits it in the same login session.
@@ -85,7 +86,7 @@ the attempt. No new secret is required for accounts using that mailbox.
 - Only new mailbox UIDs after the request checkpoint are considered. The recipient,
   message date, EduPage sender domain and Gmail DMARC result must match. Codes must
   have a recognized Slovak/Czech/English label; expired, ambiguous, unexpected or
-  unrecognized messages are rejected. Real email-template compatibility is pending.
+  unrecognized messages are rejected. The real Slovak email template was verified in the live check above.
 - One unambiguous code is submitted once. CAPTCHA, unavailable email delivery or
   a required app-only confirmation still need intervention; this is not a bypass.
 - Messages are read without marking them seen. Codes and message bodies are never
