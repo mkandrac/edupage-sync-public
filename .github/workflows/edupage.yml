@@ -20,7 +20,7 @@ on:
       timezone: Europe/Bratislava
     - cron: '0 16 * * *'
       timezone: Europe/Bratislava
-    - cron: '30 18 * * *'
+    - cron: '0 18 * * *'
       timezone: Europe/Bratislava
 
 permissions:
