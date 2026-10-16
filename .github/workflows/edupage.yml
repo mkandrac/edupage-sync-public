@@ -22,6 +22,8 @@ on:
       timezone: Europe/Bratislava
     - cron: '0 18 * * *'
       timezone: Europe/Bratislava
+    - cron: '20 18 * * *'
+      timezone: Europe/Bratislava
 
 permissions:
   contents: read
@@ -65,7 +67,9 @@ jobs:
           REQUEST_SLOT: ${{ inputs.slot }}
         shell: bash
         run: |
-          if [ "$REQUEST_MODE" = 'auth-check' ]; then
+          if [ "$SCHEDULE" = '20 18 * * *' ]; then
+            EDUPAGE_RETRY_IF_MAIN_MISSING=1 EDUPAGE_RUN_SLOT=main python run.py sync
+          elif [ "$REQUEST_MODE" = 'auth-check' ]; then
             python run.py auth-check
           elif [ "$SCHEDULE" = '17 * * * *' ] || [ "$REQUEST_MODE" = 'keepalive' ]; then
             python run.py keepalive
@@ -78,3 +82,34 @@ jobs:
           else
             EDUPAGE_RUN_SLOT=main python run.py sync
           fi
+
+      - name: Alert if evening recovery fails
+        if: ${{ failure() && github.event_name == 'schedule' && github.event.schedule == '20 18 * * *' }}
+        env:
+          GMAIL_USERNAME: ${{ secrets.GMAIL_USERNAME }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+        run: |
+          python - <<'PY'
+          import os
+          import smtplib
+          from email.message import EmailMessage
+          from datetime import datetime
+          from zoneinfo import ZoneInfo
+
+          address = os.environ["GMAIL_USERNAME"]
+          password = os.environ["GMAIL_APP_PASSWORD"].replace(" ", "")
+          message = EmailMessage()
+          message["From"] = address
+          message["To"] = address
+          message["Subject"] = "[EduPage] Večerný MAIN stále chýba"
+          timestamp = datetime.now(ZoneInfo("Europe/Bratislava")).strftime("%d.%m.%Y %H:%M")
+          message.set_content(
+              f"Poistný zber EduPage o 18:20 ({timestamp}) zlyhal. "
+              "Dnešný úspešný MAIN RAW pre obe školy sa nepodarilo potvrdiť. "
+              "Skontroluj GitHub Actions beh 'EduPage' a prípadne spusti "
+              "manuálny sync s mode=sync a slot=main."
+          )
+          with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+              smtp.login(address, password)
+              smtp.send_message(message)
+          PY
