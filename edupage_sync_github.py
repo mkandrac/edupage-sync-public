@@ -968,16 +968,24 @@ def main_raw_is_complete_today():
                 raw = json.loads(body.get_content())
             except (TypeError, ValueError):
                 continue
+            if not isinstance(raw, dict):
+                continue
             if (
                 raw.get("run_slot") != "main"
                 or not str(raw.get("generated_at", "")).startswith(today)
             ):
                 continue
 
+            raw_accounts = raw.get("accounts")
+            if not isinstance(raw_accounts, list):
+                continue
             successful_keys = {
                 account.get("school_key")
-                for account in raw.get("accounts", [])
-                if account.get("status") == "ok"
+                for account in raw_accounts
+                if (
+                    isinstance(account, dict)
+                    and account.get("status") == "ok"
+                )
             }
             if expected_keys.issubset(successful_keys):
                 return True
