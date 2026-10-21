@@ -1,4 +1,4 @@
-# EduPage private collector on a public runner
+# EduPage collector — public source, private configuration
 
 Generic collector with private configuration. It sends broad RAW data and encrypted
 session state to the configured Gmail mailbox. Choosing relevant items and sending a
@@ -19,12 +19,14 @@ parent brief is a separate automation; this project does not configure that auto
 - Failure details may appear in private Gmail RAW, never in the public worker log.
   A failure before RAW creation has only a generic public status.
 
-See [MIGRATION.md](MIGRATION.md) for the private-to-public transfer.
+See [MIGRATION.md](MIGRATION.md) for the historical private-to-public transfer.
+See [PRIVATE_RUNTIME.md](PRIVATE_RUNTIME.md) for private operation with pinned public
+code, safe cutover, rollback and optional external scheduling.
 
 ## Schedule and startup
 
 Default schedules use Europe/Bratislava: MORNING RAW at 09:00, NOON RAW at 12:00,
-EARLY RAW at 16:00 and MAIN RAW at 18:30.
+EARLY RAW at 16:00 and MAIN RAW at 18:00, with a conditional MAIN recovery at 18:20.
 Hourly keepalive is disabled: its cron was removed after live email 2FA and
 subsequent collection passed. Manual `keepalive` remains available for recovery. Timezone-aware schedules handle
 daylight-saving changes, but dispatch can still be delayed by GitHub.
@@ -119,8 +121,8 @@ Interpret public diagnostics:
 | `email_2fa_finish:timeout` | No acceptable code arrived within the time budget. |
 
 The email path and subsequent normal sync have now succeeded for all configured
-accounts. The hourly keepalive cron has been removed; the four collection
-schedules continue unchanged and can renew authentication on demand. Manual
+accounts. The hourly keepalive cron has been removed; the collection schedules can renew authentication on demand. The current public
+workflow has four collection slots plus a conditional evening recovery. Manual
 keepalive remains available for recovery. To restore hourly keepalive, restore
 its cron and deliberately update the job condition that excludes that schedule. Do not regard GitHub's
 scheduled start time as a guaranteed deadline; retain a buffer before the brief.
