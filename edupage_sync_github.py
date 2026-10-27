@@ -917,82 +917,6 @@ def get_gmail_credentials():
     return email_from, email_password
 
 
-def main_raw_is_complete_today():
-    """True only if today's archived MAIN RAW contains successful results for every school."""
-    email_username, email_password = get_gmail_credentials()
-    expected_keys = {
-        account["key"]
-        for account in ACCOUNTS
-    }
-    now = datetime.now(ZoneInfo(TIMEZONE))
-    today = now.date().isoformat()
-    since = now.strftime("%d-%b-%Y")
-
-    with imaplib.IMAP4_SSL(IMAP_SERVER, IMAP_PORT) as imap:
-        imap.login(email_username, email_password)
-        select_gmail_all_mail(imap)
-        status, search_data = imap.search(
-            None,
-            "FROM",
-            f'"{email_username}"',
-            "SUBJECT",
-            '"[EDUPAGE-RAW][MAIN]"',
-            "SINCE",
-            since
-        )
-        if status != "OK":
-            raise RuntimeError("Vyhľadanie dnešného MAIN RAW zlyhalo.")
-
-        message_ids = search_data[0].split()
-        for message_id in reversed(message_ids):
-            status, fetch_data = imap.fetch(message_id, "(RFC822)")
-            if status != "OK":
-                continue
-            raw_message = next(
-                (item[1] for item in fetch_data if isinstance(item, tuple)),
-                None
-            )
-            if raw_message is None:
-                continue
-
-            parsed_message = email.message_from_bytes(
-                raw_message,
-                policy=default_email_policy
-            )
-            if today not in str(parsed_message.get("Subject", "")):
-                continue
-            body = parsed_message.get_body(preferencelist=("plain",))
-            if body is None:
-                continue
-            try:
-                raw = json.loads(body.get_content())
-            except (TypeError, ValueError):
-                continue
-            if not isinstance(raw, dict):
-                continue
-            if (
-                raw.get("run_slot") != "main"
-                or not str(raw.get("generated_at", "")).startswith(today)
-            ):
-                continue
-
-            raw_accounts = raw.get("accounts")
-            if not isinstance(raw_accounts, list):
-                continue
-            successful_keys = {
-                account.get("school_key")
-                for account in raw_accounts
-                if (
-                    isinstance(account, dict)
-                    and account.get("status") == "ok"
-                )
-            }
-            if expected_keys.issubset(successful_keys):
-                return True
-
-    return False
-
-
 def send_email(subject, body):
     email_from, email_password = get_gmail_credentials()
 
@@ -1904,12 +1828,6 @@ if len(sys.argv) > 1:
 # ============================================================
 # LOAD STATE
 # ============================================================
-
-if os.getenv("EDUPAGE_RETRY_IF_MAIN_MISSING") == "1":
-    if main_raw_is_complete_today():
-        print("Dnešný MAIN RAW už úspešne pokrýva obe školy; opakovaný zber preskočený.")
-        raise SystemExit(0)
-    print("Dnešný MAIN RAW chýba alebo nie je úplný; spúšťam poistný zber.")
 
 state = load_state()
 
